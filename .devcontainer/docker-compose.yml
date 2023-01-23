@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+      - ../.m2:/home/user/.m2
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+
+    # Overrides default command so things don't shut down after the process ends.
+    entrypoint: [ "/bin/sleep", "infinity" ]
+    # command: sleep infinity
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    # network_mode: service:db
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+
+  mongo1:
+    image: mongo:latest
+    restart: always
+    command: [ "--replSet", "rs0" ]
+    volumes:
+      - mongo1-data:/data/db
+
+  mongo2:
+    image: mongo:latest
+    restart: always
+    command: [ "--replSet", "rs0" ]
+    volumes:
+      - mongo2-data:/data/db
+
+  mongo3:
+    image: mongo:latest
+    restart: always
+    command: [ "--replSet", "rs0" ]
+    volumes:
+      - mongo3-data:/data/db
+
+  mongoinit:
+    image: mongo
+    # this container will exit after executing the command
+    restart: "no"
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    entrypoint:
+      [
+        "mongosh",
+        "--host",
+        "mongo1:27017",
+        "--file",
+        "/mongo-init.js"
+      ]
+    volumes:
+      - ../mongo-init.js:/mongo-init.js
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo1:27017,mongo2:27017,mongo3:27017
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
